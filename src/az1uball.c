@@ -95,11 +95,11 @@ static int activity_state_changed_handler(const zmk_event_t *eh) {
     struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
 
     // Get the device pointer
-//    const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(palette_az1uball));
-//    if (!device_is_ready(dev)) {
-//        LOG_ERR("AZ1UBALL device not ready");
-//        return -ENODEV;
-//    }
+    const struct device *dev = device_get_binding("trackball");
+    if (!device_is_ready(dev)) {
+        LOG_ERR("AZ1UBALL device not ready");
+        return -ENODEV;
+    }
 
     if (ev->state == ZMK_ACTIVITY_IDLE) {
         az1uball_enable_sleep(dev);
