@@ -144,7 +144,7 @@ static void az1uball_process_movement(struct palette_az1uball_data *data, int de
 }
 
 static void palette_az1uball_work_handler(struct k_work *work) {
-    struct palette_az1uball_data *data = CONTAINER_OF(work, struct palette_az1uball_data, irq_work);
+    struct palette_az1uball_data *data = CONTAINER_OF(work, struct palette_az1uball_data);
     const struct palette_az1uball_config *config = data->dev->config;
     const struct device *dev = data->dev;
     uint8_t buf[5];
