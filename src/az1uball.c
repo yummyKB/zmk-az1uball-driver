@@ -84,7 +84,7 @@ void az1uball_disable_sleep(const struct device *dev) {
     LOG_DBG("AZ1UBALL sleep disabled");
 }
 
-void pim447_toggle_mode(void) {
+void az1uball_toggle_mode(void) {
     current_mode = (current_mode == AZ1UBALL_MODE_MOUSE) ? AZ1UBALL_MODE_SCROLL : AZ1UBALL_MODE_MOUSE;
     // Optional: Add logging or LED indication here to show the current mode
     LOG_DBG("AZ1UBALL mode switched to %s", (current_mode == AZ1UBALL_MODE_MOUSE) ? "MOUSE" : "SCROLL");
@@ -115,7 +115,7 @@ static int activity_state_changed_handler(const zmk_event_t *eh) {
 ZMK_LISTENER(idle_listener, activity_state_changed_handler);
 ZMK_SUBSCRIPTION(idle_listener, zmk_activity_state_changed);
 
-static void pim447_process_movement(struct palette_az1uball_data *data, int delta_x, int delta_y, uint32_t time_between_interrupts, int max_speed, int max_time, float smoothing_factor) {
+static void az1uball_process_movement(struct palette_az1uball_data *data, int delta_x, int delta_y, uint32_t time_between_interrupts, int max_speed, int max_time, float smoothing_factor) {
     float scaling_factor = 1.0f;
     if (time_between_interrupts < max_time) {
         // Exponential scaling calculation
@@ -156,7 +156,7 @@ static void palette_az1uball_work_handler(struct k_work *work) {
     /* Read movement data and switch state */
     ret = i2c_burst_read_dt(&config->i2c, REG_LEFT, buf, 5);
     if (ret) {
-        LOG_ERR("Failed to read movement data from PIM447: %d", ret);
+        LOG_ERR("Failed to read movement data from AZ1UBALL: %d", ret);
         return;
     }
 
