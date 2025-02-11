@@ -1,0 +1,18 @@
+config ZMK_AZ1UBALL
+  bool "Palette-System AZ1UBALL"
+  select ZMK_MOUSE
+  select I2C
+  help
+    Enable driver for AZ1UBALL.
+
+if ZMK_AZ1UBALL
+
+  config ZMK_AZ1UBALL_AUTOMOUSE_TIMEOUT_MS
+    int "Amount of milliseconds the mouse layer will be active after using the trackball"
+    default 400
+
+    module = AZ1UBALL
+    module-str = AZ1UBALL
+    source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+endif # AZ1UBALL
