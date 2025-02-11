@@ -41,7 +41,7 @@ static int previous_y = 0;
 void az1uball_enable_sleep(const struct device *dev) {
     struct palette_az1uball_data *data = dev->data;
 
-    const struct palette_az1uball_config *config = dev->config;
+    const struct palette_az1uball_config *config = data->dev->config;
     uint8_t ctrl_reg_value;
 
     // Read the current control register value
@@ -64,7 +64,7 @@ void az1uball_enable_sleep(const struct device *dev) {
 void az1uball_disable_sleep(const struct device *dev) {
     struct palette_az1uball_data *data = dev->data;
 
-    const struct palette_az1uball_config *config = dev->config;
+    const struct palette_az1uball_config *config = data->dev->config;
     uint8_t ctrl_reg_value;
 
     // Read the current control register value

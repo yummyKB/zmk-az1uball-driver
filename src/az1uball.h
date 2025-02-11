@@ -27,11 +27,11 @@
 #define MSK_CTRL_SLEEP 0b00000001
 #define MSK_CTRL_RESET 0b00000010
 
-struct az1uball_config {
+struct palette_az1uball_config {
     struct i2c_dt_spec i2c;
 };
 
-struct az1uball_data {
+struct palette_az1uball_data {
     const struct device *dev;
     struct k_work_delayable periodic_work;
     struct k_mutex data_lock;   /* Existing mutex for data synchronization */
