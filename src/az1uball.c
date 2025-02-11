@@ -95,7 +95,7 @@ static int activity_state_changed_handler(const zmk_event_t *eh) {
     struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
 
     // Get the device pointer
-    const struct device *dev = DEVICE_DT_GET(DT_COMPAT(palette_az1uball);
+    const struct device *dev = DEVICE_DT_GET(DT_COMPAT(palette_az1uball));
     if (!device_is_ready(dev)) {
         LOG_ERR("AZ1UBALL device not ready");
         return -ENODEV;
