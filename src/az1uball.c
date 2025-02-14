@@ -289,23 +289,6 @@ static int palette_az1uball_init(const struct device *dev) {
         return -ENODEV;
     }
 
-    /* Read and log the chip ID */
-    uint8_t chip_id_l, chip_id_h;
-    ret = i2c_reg_read_byte_dt(&config->i2c, REG_CHIP_ID_L, &chip_id_l);
-    if (ret) {
-        LOG_ERR("Failed to read chip ID low byte");
-        return ret;
-    }
-
-    ret = i2c_reg_read_byte_dt(&config->i2c, REG_CHIP_ID_H, &chip_id_h);
-    if (ret) {
-            LOG_ERR("Failed to read chip ID high byte");
-            return ret;
-        }
-
-        uint16_t chip_id = ((uint16_t)chip_id_h << 8) | chip_id_l;
-    LOG_INF("AZ1UBALL chip ID: 0x%04X", chip_id);
-
     /* Enable the Trackball */
     ret = palette_az1uball_enable(dev);
     if (ret) {
