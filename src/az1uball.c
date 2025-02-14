@@ -22,7 +22,6 @@ volatile float AZ1UBALL_MOUSE_SMOOTHING_FACTOR = 1.3f;
 volatile uint8_t AZ1UBALL_SCROLL_MAX_SPEED = 1;
 volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
-volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -262,7 +261,7 @@ static int palette_az1uball_enable(const struct device *dev) {
 /* Disable function */
 static int palette_az1uball_disable(const struct device *dev) {
     const struct palette_az1uball_config *config = dev->config;
-    struct palette_az1uball_data *data = dev->dat
+    struct palette_az1uball_data *data = dev->data;
     int ret;
 
     LOG_INF("palette_az1uball_disable called");
