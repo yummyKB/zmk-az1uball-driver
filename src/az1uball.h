@@ -12,13 +12,7 @@
 #define REG_UP          0x06
 #define REG_DOWN        0x07
 #define REG_SWITCH      0x08
-#define REG_USER_FLASH  0xD0
-#define REG_FLASH_PAGE  0xF0
-#define REG_CHIP_ID_L   0xFA
-#define REG_CHIP_ID_H   0xFB
-#define REG_VERSION     0xFC
-#define REG_I2C_ADDR    0xFD
-#define REG_CTRL        0xFE
+#define REG_I2C_ADDR    0x0A
 
 /* Bit Masks */
 #define MSK_SWITCH_STATE    0b10000000

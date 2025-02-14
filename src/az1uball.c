@@ -262,7 +262,7 @@ static int palette_az1uball_enable(const struct device *dev) {
 /* Disable function */
 static int palette_az1uball_disable(const struct device *dev) {
     const struct palette_az1uball_config *config = dev->config;
-    struct palette_az1uball_data *data = dev->data;
+    struct palette_az1uball_data *data = dev->dat
     int ret;
 
     LOG_INF("palette_az1uball_disable called");
