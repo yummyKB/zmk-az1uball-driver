@@ -10,11 +10,14 @@
 #include <zephyr/input/input.h>
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
 #include <zmk/events/activity_state_changed.h>
 #include <math.h>
 #include "az1uball.h"
+
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(az1uball, LOG_LEVEL_DBG);
+
+#define AZ1UBALL_POLL_INTERVAL_MS 10  // 10msごとにポーリング
 
 volatile uint8_t AZ1UBALL_MOUSE_MAX_SPEED = 25;
 volatile uint8_t AZ1UBALL_MOUSE_MAX_TIME = 5;
@@ -31,6 +34,9 @@ enum az1uball_mode {
 static enum az1uball_mode current_mode = AZ1UBALL_MODE_MOUSE;
 
 /* Forward declaration of functions */
+static void pimoroni_pim447_timer_callback(struct k_timer *timer);
+static struct k_timer pimoroni_pim447_timer;
+
 static void activate_automouse_layer();
 static void deactivate_automouse_layer(struct k_timer *timer);
 
@@ -88,7 +94,7 @@ void az1uball_toggle_mode(void) {
     // Optional: Add logging or LED indication here to show the current mode
     LOG_DBG("AZ1UBALL mode switched to %s", (current_mode == AZ1UBALL_MODE_MOUSE) ? "MOUSE" : "SCROLL");
 }
-
+i
 // Event handler for activity state changes
 static int activity_state_changed_handler(const zmk_event_t *eh) {
     struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
@@ -244,6 +250,22 @@ static void palette_az1uball_work_handler(struct k_work *work) {
 
 }
 
+/* Timer callback function */
+static void palette_az1uball_timer_callback(struct k_timer *timer) {
+    struct palette_az1uball_data *data = CONTAINER_OF(timer, struct palette_az1uball_data, irq_timer);
+
+    uint32_t current_time = k_uptime_get();
+
+    k_mutex_lock(&data->data_lock, K_NO_WAIT);
+    data->previous_interrupt_time = data->last_interrupt_time;
+    data->last_interrupt_time = current_time;
+    k_mutex_unlock(&data->data_lock);
+
+    /* Schedule the work item to handle the interrupt in thread context */
+    k_work_submit(&data->irq_work);
+}
+
+
 /* Enable function */
 static int palette_az1uball_enable(const struct device *dev) {
     const struct palette_az1uball_config *config = dev->config;
@@ -289,6 +311,18 @@ static int palette_az1uball_init(const struct device *dev) {
         return -ENODEV;
     }
 
+    /* Send 0x91 to I2C address */
+    uint8_t reg = REG_I2C_ADDR;
+    uint8_t data_to_send = 0x91;
+    uint8_t buffer[2] = { reg, data_to_send };
+
+    ret = i2c_write(config->i2c.bus, buffer, sizeof(buffer), config->i2c.addr);
+    if (ret) {
+        LOG_ERR("Failed to write 0x91 to REG_I2C_ADDR (error: %d)", ret);
+        return ret;
+    }
+    LOG_INF("0x91 successfully written to I2C address");
+
     /* Enable the Trackball */
     ret = palette_az1uball_enable(dev);
     if (ret) {
@@ -299,6 +333,9 @@ static int palette_az1uball_init(const struct device *dev) {
     k_work_init(&data->irq_work, palette_az1uball_work_handler);
 
     LOG_INF("AZ1UBALL driver initialized");
+
+    k_timer_init(&data->irq_timer, palette_az1uball_timer_callback, NULL);
+    k_timer_start(&data->irq_timer, K_MSEC(AZ1UBALL_POLL_INTERVAL_MS), K_MSEC(AZ1UBALL_POLL_INTERVAL_MS));
 
     return 0;
 }
@@ -322,12 +359,18 @@ static int palette_az1uball_init(const struct device *dev) {
     K_TIMER_DEFINE(automouse_layer_timer, deactivate_automouse_layer, NULL);
 #endif
 
-static const struct palette_az1uball_config palette_az1uball_config = {
-    .i2c = I2C_DT_SPEC_INST_GET(0),
-};
+#define AZ1UBALL_DEFINE(n)                                         \
+  static struct palette_az1uball_data palette_az1uball_data_##n;   \
+  static const struct palette_az1uball_config config_##n = {       \
+      .i2c = I2C_DT_SPEC_INST_GET(n),                              \
+  };                                                               \
+  DEVICE_DT_INST_DEFINE(inst,                                      \
+                        az1uball_init,                             \
+                        NULL,                                      \
+                        &az1uball_data_##n,                     \
+                        &az1uball_config_##n,                   \
+                        POST_KERNEL,                               \
+                        CONFIG_SENSOR_INIT_PRIORITY,                \
+                        NULL);
 
-static struct palette_az1uball_data palette_az1uball_data;
-
-/* Device initialization macro */
-DEVICE_DT_INST_DEFINE(0, palette_az1uball_init, NULL, &palette_az1uball_data, &palette_az1uball_config,
-                      POST_KERNEL, CONFIG_INPUT_INIT_PRIORITY, NULL);
+DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)

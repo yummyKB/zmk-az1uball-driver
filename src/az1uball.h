@@ -1,5 +1,4 @@
-#ifndef AZ1UBALL_H
-#define AZ1UBALL_H
+#pragma once
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/i2c.h>
@@ -12,10 +11,13 @@
 #define REG_UP          0x06
 #define REG_DOWN        0x07
 #define REG_SWITCH      0x08
-#define REG_I2C_ADDR    0x0A
 
 /* Bit Masks */
 #define MSK_SWITCH_STATE    0b10000000
+
+/* Interrupt Masks */
+#define MSK_INT_TRIGGERED   0b00000001
+#define MSK_INT_OUT_EN      0b00000010
 
 /* Sleep */
 #define MSK_CTRL_SLEEP 0b00000001
@@ -46,6 +48,3 @@ struct palette_az1uball_data {
 void az1uball_enable_sleep(const struct device *dev);
 void az1uball_disable_sleep(const struct device *dev);
 void az1uball_toggle_mode(void);
-
-
-#endif /* AZ1UBALL_H */
