@@ -367,10 +367,10 @@ static int palette_az1uball_init(const struct device *dev) {
   DEVICE_DT_INST_DEFINE(inst,                                      \
                         az1uball_init,                             \
                         NULL,                                      \
-                        &az1uball_data_##n,                     \
-                        &az1uball_config_##n,                   \
+                        &az1uball_data_##n,                        \
+                        &az1uball_config_##n,                      \
                         POST_KERNEL,                               \
-                        CONFIG_SENSOR_INIT_PRIORITY,                \
+                        CONFIG_SENSOR_INIT_PRIORITY,               \
                         NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
