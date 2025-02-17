@@ -76,11 +76,11 @@ void az1uball_read_data_work(struct k_work *work)
     struct az1uball_data *data = CONTAINER_OF(work, struct az1uball_data, work);
     const struct az1uball_config *config = data->dev->config;
     const struct device *dev = data->dev;
-    uint8_t buf[4];  //Buffer to store X, Y, Switch data
+    uint8_t buf[5];  //Buffer to store X, Y, Switch data
     int ret;
 
     // Read data from I2C
-    ret = i2c_burst_read_dt(config->i2c.bus, buf, sizeof(buf));
+    ret = i2c_burst_read_dt(&config->i2c.bus, REG_LEFT, buf, 5);
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
         return;
