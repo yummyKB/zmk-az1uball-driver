@@ -77,7 +77,7 @@ void az1uball_read_data_work(struct k_work *work)
     const struct az1uball_config *config = data->dev->config;
     const struct device *dev = data->dev;
     uint8_t buf[4];  //Buffer to store X, Y, Switch data
-    int ret
+    int ret;
 
     // Read data from I2C
     ret = i2c_burst_read_dt(config->i2c.bus, buf, sizeof(buf));
