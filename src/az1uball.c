@@ -6,9 +6,9 @@
 
 #define DT_DRV_COMPAT palette_az1uball
 
-#include <zephyr/device.h>
+#include <device.h>
 #include <zephyr/input/input.h>
-#include <zephyr/drivers/i2c.h>
+#include <drivers/i2c.h>
 #include <zephyr/kernel.h>
 #include <zmk/events/activity_state_changed.h>
 #include <math.h>
@@ -17,14 +17,15 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(az1uball, LOG_LEVEL_DBG);
 
-#define AZ1UBALL_POLL_INTERVAL_MS 10  // 10msごとにポーリング
-
 volatile uint8_t AZ1UBALL_MOUSE_MAX_SPEED = 25;
 volatile uint8_t AZ1UBALL_MOUSE_MAX_TIME = 5;
 volatile float AZ1UBALL_MOUSE_SMOOTHING_FACTOR = 1.3f;
 volatile uint8_t AZ1UBALL_SCROLL_MAX_SPEED = 1;
 volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
+volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
+
+#define POLL_INTERVAL 10  // ポーリングの間隔（1秒）
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -33,94 +34,19 @@ enum az1uball_mode {
 
 static enum az1uball_mode current_mode = AZ1UBALL_MODE_MOUSE;
 
-/* Forward declaration of functions */
-static void pimoroni_pim447_timer_callback(struct k_timer *timer);
-static struct k_timer pimoroni_pim447_timer;
-
-static void activate_automouse_layer();
-static void deactivate_automouse_layer(struct k_timer *timer);
-
 static int previous_x = 0;
 static int previous_y = 0;
 
-void az1uball_enable_sleep(const struct device *dev) {
-    struct palette_az1uball_data *data = dev->data;
-
-    const struct palette_az1uball_config *config = data->dev->config;
-    uint8_t ctrl_reg_value;
-
-    // Read the current control register value
-    if (i2c_reg_read_byte_dt(&config->i2c, MSK_CTRL_SLEEP, &ctrl_reg_value) != 0) {
-        LOG_ERR("Failed to read AZ1UBALL control register");
-        return;
-    }
-
-    ctrl_reg_value |= MSK_CTRL_SLEEP; // Set the SLEEP bit
-
-    // Write the modified value back
-    if (i2c_reg_write_byte_dt(&config->i2c, MSK_CTRL_SLEEP, ctrl_reg_value) != 0) {
-        LOG_ERR("Failed to write AZ1UBALL control register");
-        return;
-    }
-
-    LOG_DBG("AZ1UBALL sleep enabled");
-}
-
-void az1uball_disable_sleep(const struct device *dev) {
-    struct palette_az1uball_data *data = dev->data;
-
-    const struct palette_az1uball_config *config = data->dev->config;
-    uint8_t ctrl_reg_value;
-
-    // Read the current control register value
-    if (i2c_reg_read_byte_dt(&config->i2c, MSK_CTRL_SLEEP, &ctrl_reg_value) != 0) {
-        LOG_ERR("Failed to read AZ1UBALL control register");
-        return;
-    }
-
-    ctrl_reg_value &= ~MSK_CTRL_SLEEP; // Clear the SLEEP bit
-
-    // Write the modified value back
-    if (i2c_reg_write_byte_dt(&config->i2c, MSK_CTRL_SLEEP, ctrl_reg_value) != 0) {
-        LOG_ERR("Failed to write AZ1UBALL control register");
-        return;
-    }
-
-    LOG_DBG("AZ1UBALL sleep disabled");
-}
-
-void az1uball_toggle_mode(void) {
+void pim447_toggle_mode(void) {
     current_mode = (current_mode == AZ1UBALL_MODE_MOUSE) ? AZ1UBALL_MODE_SCROLL : AZ1UBALL_MODE_MOUSE;
     // Optional: Add logging or LED indication here to show the current mode
     LOG_DBG("AZ1UBALL mode switched to %s", (current_mode == AZ1UBALL_MODE_MOUSE) ? "MOUSE" : "SCROLL");
-}
-i
-// Event handler for activity state changes
-static int activity_state_changed_handler(const zmk_event_t *eh) {
-    struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
-
-    // Get the device pointer
-    const struct device *dev = device_get_binding("trackball");
-    if (!device_is_ready(dev)) {
-        LOG_ERR("AZ1UBALL device not ready");
-        return -ENODEV;
-    }
-
-    if (ev->state == ZMK_ACTIVITY_IDLE) {
-        az1uball_enable_sleep(dev);
-    }
-
-    if (ev->state != ZMK_ACTIVITY_IDLE) {
-        az1uball_disable_sleep(dev);
-    }
-
-    return 0;
 }
 
 ZMK_LISTENER(idle_listener, activity_state_changed_handler);
 ZMK_SUBSCRIPTION(idle_listener, zmk_activity_state_changed);
 
-static void az1uball_process_movement(struct palette_az1uball_data *data, int delta_x, int delta_y, uint32_t time_between_interrupts, int max_speed, int max_time, float smoothing_factor) {
+static void az1uball_process_movement(struct az1uball_data *data, int delta_x, int delta_y, uint32_t time_between_interrupts, int max_speed, int max_time, float smoothing_factor) {
     float scaling_factor = 1.0f;
     if (time_between_interrupts < max_time) {
         // Exponential scaling calculation
@@ -148,21 +74,20 @@ static void az1uball_process_movement(struct palette_az1uball_data *data, int de
     data->previous_y = data->smoothed_y;
 }
 
-static void palette_az1uball_work_handler(struct k_work *work) {
-    struct palette_az1uball_data *data = CONTAINER_OF(work, struct palette_az1uball_data, irq_work);
-    const struct palette_az1uball_config *config = data->dev->config;
+/* 非同期作業の実行関数 */
+void az1uball_read_data_work(struct k_work *work)
+{
+    struct az1uball_data *data = CONTAINER_OF(work, struct az1uball_data, work);
+    const struct az1uball_config *config = data->dev->config;  // デバイス情報から設定を取得
     const struct device *dev = data->dev;
-    uint8_t buf[5];
-    int ret;
+    uint8_t buf[4];  // X, Y, Switchデータを格納するバッファ
+    int ret
 
-    LOG_INF("AZ1UBALL work handler triggered");
-
-
-    /* Read movement data and switch state */
-    ret = i2c_burst_read_dt(&config->i2c, REG_LEFT, buf, 5);
+    // I2Cからデータを読み取る
+    ret = i2c_burst_read_dt(config->i2c.bus, buf, sizeof(buf));
     if (ret) {
-        LOG_ERR("Failed to read movement data from AZ1UBALL: %d", ret);
-        return;
+        LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
+        return;  // エラーが発生した場合は処理を終了
     }
 
     uint32_t time_between_interrupts;
@@ -178,7 +103,7 @@ static void palette_az1uball_work_handler(struct k_work *work) {
     /* Report movement immediately if non-zero */
     if (delta_x != 0 || delta_y != 0) {
         if (current_mode == AZ1UBALL_MODE_MOUSE) {
-            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
+            pim447_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
 
             /* Report relative X movement */
             if (delta_x != 0) {
@@ -200,7 +125,7 @@ static void palette_az1uball_work_handler(struct k_work *work) {
                 }
             }
         } else if (current_mode == AZ1UBALL_MODE_SCROLL) {
-            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
+            pim447_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
 
             /* Report relative X movement */
             if (delta_x != 0) {
@@ -247,12 +172,12 @@ static void palette_az1uball_work_handler(struct k_work *work) {
     i2c_reg_write_byte_dt(&config->i2c, REG_RIGHT, zero);
     i2c_reg_write_byte_dt(&config->i2c, REG_UP, zero);
     i2c_reg_write_byte_dt(&config->i2c, REG_DOWN, zero);
-
 }
 
-/* Timer callback function */
-static void palette_az1uball_timer_callback(struct k_timer *timer) {
-    struct palette_az1uball_data *data = CONTAINER_OF(timer, struct palette_az1uball_data, irq_timer);
+static void az1uball_polling(struct k_timer *timer_id, struct device *dev)
+{
+    const struct az1uball_config *config = dev->config;
+    struct az1uball_data *data = dev->data;  // デバイスのデータを取得
 
     uint32_t current_time = k_uptime_get();
 
@@ -262,48 +187,21 @@ static void palette_az1uball_timer_callback(struct k_timer *timer) {
     k_mutex_unlock(&data->data_lock);
 
     /* Schedule the work item to handle the interrupt in thread context */
-    k_work_submit(&data->irq_work);
+    k_work_submit(&data->work);
 }
 
-
-/* Enable function */
-static int palette_az1uball_enable(const struct device *dev) {
-    const struct palette_az1uball_config *config = dev->config;
-    struct palette_az1uball_data *data = dev->data;
-    int ret;
-
-    LOG_INF("palette_az1uball_enable called");
-
-
-    LOG_INF("palette_az1uball enabled");
-
-    return 0;
-}
-
-/* Disable function */
-static int palette_az1uball_disable(const struct device *dev) {
-    const struct palette_az1uball_config *config = dev->config;
-    struct palette_az1uball_data *data = dev->data;
-    int ret;
-
-    LOG_INF("palette_az1uball_disable called");
-
-    LOG_INF("palette_az1uball disabled");
-
-    return 0;
-}
-
-
-/* Device initialization function */
-static int palette_az1uball_init(const struct device *dev) {
-    const struct palette_az1uball_config *config = dev->config;
-    struct palette_az1uball_data *data = dev->data;
+/* AZ1UBALLの初期化 */
+static int az1uball_init(const struct device *dev)
+{
+    const struct az1uball_config *config = dev->config;
+    struct az1uball_data *data = dev->data;
     int ret;
 
     LOG_INF("AZ1UBALL driver initializing");
 
-    data->dev = dev;
-    data->sw_pressed_prev = false;
+    k_work_init(&az1uball_work, az1uball_read_data_work);
+    k_timer_init(&polling_timer, az1uball_polling_function, NULL);
+    k_timer_start(&polling_timer, POLL_INTERVAL, POLL_INTERVAL);  // ポーリング間隔でタイマー開始
 
     /* Check if the I2C device is ready */
     if (!device_is_ready(config->i2c.bus)) {
@@ -311,66 +209,31 @@ static int palette_az1uball_init(const struct device *dev) {
         return -ENODEV;
     }
 
-    /* Send 0x91 to I2C address */
-    uint8_t reg = REG_I2C_ADDR;
-    uint8_t data_to_send = 0x91;
-    uint8_t buffer[2] = { reg, data_to_send };
-
-    ret = i2c_write(config->i2c.bus, buffer, sizeof(buffer), config->i2c.addr);
+    /* Set high speed mode */
+    uint8_t cmd = 0x91;  // AZモード設定コマンド
+    int ret = i2c_burst_read_dt(config->i2c.bus, &cmd, sizeof(cmd));
     if (ret) {
-        LOG_ERR("Failed to write 0x91 to REG_I2C_ADDR (error: %d)", ret);
+        LOG_ERR("Failed to set AZ mode");
         return ret;
     }
-    LOG_INF("0x91 successfully written to I2C address");
-
-    /* Enable the Trackball */
-    ret = palette_az1uball_enable(dev);
-    if (ret) {
-        LOG_ERR("Failed to enable AZ1UBALL");
-        return ret;
-    }
-
-    k_work_init(&data->irq_work, palette_az1uball_work_handler);
-
-    LOG_INF("AZ1UBALL driver initialized");
-
-    k_timer_init(&data->irq_timer, palette_az1uball_timer_callback, NULL);
-    k_timer_start(&data->irq_timer, K_MSEC(AZ1UBALL_POLL_INTERVAL_MS), K_MSEC(AZ1UBALL_POLL_INTERVAL_MS));
 
     return 0;
 }
 
-#define AUTOMOUSE_LAYER (DT_PROP(DT_DRV_INST(0), automouse_layer))
-#if AUTOMOUSE_LAYER > 0
-    struct k_timer automouse_layer_timer;
-    static bool automouse_triggered = false;
-
-    static void activate_automouse_layer() {
-        automouse_triggered = true;
-        zmk_keymap_layer_activate(AUTOMOUSE_LAYER);
-        k_timer_start(&automouse_layer_timer, K_MSEC(CONFIG_ZMK_AZ1UBALL_AUTOMOUSE_TIMEOUT_MS), K_NO_WAIT);
-    }
-
-    static void deactivate_automouse_layer(struct k_timer *timer) {
-        automouse_triggered = false;
-        zmk_keymap_layer_deactivate(AUTOMOUSE_LAYER);
-    }
-
-    K_TIMER_DEFINE(automouse_layer_timer, deactivate_automouse_layer, NULL);
-#endif
-
-#define AZ1UBALL_DEFINE(n)                                         \
-  static struct palette_az1uball_data palette_az1uball_data_##n;   \
-  static const struct palette_az1uball_config config_##n = {       \
-      .i2c = I2C_DT_SPEC_INST_GET(n),                              \
-  };                                                               \
-  DEVICE_DT_INST_DEFINE(inst,                                      \
-                        az1uball_init,                             \
-                        NULL,                                      \
-                        &az1uball_data_##n,                        \
-                        &az1uball_config_##n,                      \
-                        POST_KERNEL,                               \
-                        CONFIG_SENSOR_INIT_PRIORITY,               \
+/* マクロ定義で複数インスタンスの定義 */
+#define AZ1UBALL_DEFINE(n)                                           \
+  static struct az1uball_data az1uball_data_##n;                     \
+  static const struct az1uball_config config_##n = {                 \
+      .i2c = I2C_DT_SPEC_INST_GET(n),                                \
+  };                                                                 \
+  DEVICE_DT_INST_DEFINE(n,                                           \
+                        az1uball_init,                               \
+                        NULL,                                        \
+                        &az1uball_data_##n,                          \
+                        &config_##n,                                 \
+                        POST_KERNEL,                                 \
+                        CONFIG_INPUT_INIT_PRIORITY,                  \
                         NULL);
 
+/* デバイスツリーに基づいてインスタンスを生成 */
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)

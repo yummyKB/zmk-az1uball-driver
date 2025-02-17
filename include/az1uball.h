@@ -5,6 +5,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/mutex.h>
 
+/* I2C address */
+#define AZ1UBALL_I2C_ADDRESS  0x0A  // AZ1UBALLのI2Cアドレス（例）
+
 /* Register Addresses */
 #define REG_LEFT        0x04
 #define REG_RIGHT       0x05
@@ -15,24 +18,18 @@
 /* Bit Masks */
 #define MSK_SWITCH_STATE    0b10000000
 
-/* Interrupt Masks */
-#define MSK_INT_TRIGGERED   0b00000001
-#define MSK_INT_OUT_EN      0b00000010
-
-/* Sleep */
-#define MSK_CTRL_SLEEP 0b00000001
-#define MSK_CTRL_RESET 0b00000010
-
-struct palette_az1uball_config {
+struct az1uball_config {
     struct i2c_dt_spec i2c;
 };
 
-struct palette_az1uball_data {
+struct az1uball_data {
     const struct device *dev;
+    struct k_work work;
     struct k_work_delayable periodic_work;
-    struct k_work irq_work;     // Work item for handling interrupts
-    struct k_mutex data_lock;   /* Existing mutex for data synchronization */
-    struct k_mutex i2c_lock;    /* New mutex for I2C operations */
+    struct k_timer polling_timer
+    int16_t x;
+    int16_t y;
+    uint8_t buttons;
     bool sw_pressed;
     bool sw_pressed_prev;
     atomic_t x_buffer;
@@ -44,7 +41,3 @@ struct palette_az1uball_data {
     int smoothed_x;
     int smoothed_y;
 };
-
-void az1uball_enable_sleep(const struct device *dev);
-void az1uball_disable_sleep(const struct device *dev);
-void az1uball_toggle_mode(void);

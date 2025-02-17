@@ -1,15 +1,11 @@
-menuconfig ZMK_AZ1UBALL
-  bool "Palette-System AZ1UBALL"
+menuconfig AZ1UBALL
+  bool "Palette-System AZ1UBALL Trackball Support"
   select ZMK_POINTING
   select I2C
   help
-    Enable driver for AZ1UBALL.
+    Enable driver for Palette-System AZ1UBALL Trackball.
 
-if ZMK_AZ1UBALL
-
-  config ZMK_AZ1UBALL_AUTOMOUSE_TIMEOUT_MS
-    int "Amount of milliseconds the mouse layer will be active after using the trackball"
-    default 400
+if AZ1UBALL
 
     module = AZ1UBALL
     module-str = AZ1UBALL
