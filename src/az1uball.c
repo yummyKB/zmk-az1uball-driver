@@ -10,7 +10,6 @@
 #include <zephyr/input/input.h>
 #include <drivers/i2c.h>
 #include <zephyr/kernel.h>
-#include <zmk/events/activity_state_changed.h>
 #include <math.h>
 #include "az1uball.h"
 
@@ -25,7 +24,7 @@ volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
 
-#define POLL_INTERVAL 10  // ポーリングの間隔（1秒）
+#define POLL_INTERVAL 10  // Polling interval
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -42,9 +41,6 @@ void pim447_toggle_mode(void) {
     // Optional: Add logging or LED indication here to show the current mode
     LOG_DBG("AZ1UBALL mode switched to %s", (current_mode == AZ1UBALL_MODE_MOUSE) ? "MOUSE" : "SCROLL");
 }
-
-ZMK_LISTENER(idle_listener, activity_state_changed_handler);
-ZMK_SUBSCRIPTION(idle_listener, zmk_activity_state_changed);
 
 static void az1uball_process_movement(struct az1uball_data *data, int delta_x, int delta_y, uint32_t time_between_interrupts, int max_speed, int max_time, float smoothing_factor) {
     float scaling_factor = 1.0f;
@@ -74,20 +70,20 @@ static void az1uball_process_movement(struct az1uball_data *data, int delta_x, i
     data->previous_y = data->smoothed_y;
 }
 
-/* 非同期作業の実行関数 */
+/* Execution functions for asynchronous work */
 void az1uball_read_data_work(struct k_work *work)
 {
     struct az1uball_data *data = CONTAINER_OF(work, struct az1uball_data, work);
-    const struct az1uball_config *config = data->dev->config;  // デバイス情報から設定を取得
+    const struct az1uball_config *config = data->dev->config;
     const struct device *dev = data->dev;
-    uint8_t buf[4];  // X, Y, Switchデータを格納するバッファ
+    uint8_t buf[4];  //Buffer to store X, Y, Switch data
     int ret
 
-    // I2Cからデータを読み取る
+    // Read data from I2C
     ret = i2c_burst_read_dt(config->i2c.bus, buf, sizeof(buf));
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
-        return;  // エラーが発生した場合は処理を終了
+        return;
     }
 
     uint32_t time_between_interrupts;
@@ -177,7 +173,7 @@ void az1uball_read_data_work(struct k_work *work)
 static void az1uball_polling(struct k_timer *timer_id, struct device *dev)
 {
     const struct az1uball_config *config = dev->config;
-    struct az1uball_data *data = dev->data;  // デバイスのデータを取得
+    struct az1uball_data *data = dev->data;
 
     uint32_t current_time = k_uptime_get();
 
@@ -201,7 +197,7 @@ static int az1uball_init(const struct device *dev)
 
     k_work_init(&az1uball_work, az1uball_read_data_work);
     k_timer_init(&polling_timer, az1uball_polling_function, NULL);
-    k_timer_start(&polling_timer, POLL_INTERVAL, POLL_INTERVAL);  // ポーリング間隔でタイマー開始
+    k_timer_start(&polling_timer, POLL_INTERVAL, POLL_INTERVAL);
 
     /* Check if the I2C device is ready */
     if (!device_is_ready(config->i2c.bus)) {
@@ -210,7 +206,7 @@ static int az1uball_init(const struct device *dev)
     }
 
     /* Set high speed mode */
-    uint8_t cmd = 0x91;  // AZモード設定コマンド
+    uint8_t cmd = 0x91;
     int ret = i2c_burst_read_dt(config->i2c.bus, &cmd, sizeof(cmd));
     if (ret) {
         LOG_ERR("Failed to set AZ mode");
@@ -220,7 +216,6 @@ static int az1uball_init(const struct device *dev)
     return 0;
 }
 
-/* マクロ定義で複数インスタンスの定義 */
 #define AZ1UBALL_DEFINE(n)                                           \
   static struct az1uball_data az1uball_data_##n;                     \
   static const struct az1uball_config config_##n = {                 \
@@ -235,5 +230,4 @@ static int az1uball_init(const struct device *dev)
                         CONFIG_INPUT_INIT_PRIORITY,                  \
                         NULL);
 
-/* デバイスツリーに基づいてインスタンスを生成 */
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
