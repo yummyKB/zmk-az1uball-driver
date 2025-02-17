@@ -11,7 +11,7 @@
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/kernel.h>
 #include <math.h>
-#include "include/az1uball.h"
+#include "./include/az1uball.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(az1uball, LOG_LEVEL_DBG);
