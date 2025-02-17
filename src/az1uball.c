@@ -196,7 +196,7 @@ static int az1uball_init(const struct device *dev)
     LOG_INF("AZ1UBALL driver initializing");
 
     k_work_init(&az1uball_work, az1uball_read_data_work);
-    k_timer_init(&polling_timer, az1uball_polling_function, NULL);
+    k_timer_init(&polling_timer, az1uball_polling, NULL);
     k_timer_start(&polling_timer, POLL_INTERVAL, POLL_INTERVAL);
 
     /* Check if the I2C device is ready */
