@@ -6,9 +6,9 @@
 
 #define DT_DRV_COMPAT palette_az1uball
 
-#include <device.h>
+#include <zephyr/device.h>
 #include <zephyr/input/input.h>
-#include <drivers/i2c.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/kernel.h>
 #include <math.h>
 #include "az1uball.h"
