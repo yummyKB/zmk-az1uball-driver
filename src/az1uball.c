@@ -170,9 +170,8 @@ void az1uball_read_data_work(struct k_work *work)
     i2c_reg_write_byte_dt(&config->i2c, REG_DOWN, zero);
 }
 
-static void az1uball_polling(struct k_timer *timer_id, struct device *dev)
+static void az1uball_polling(struct k_timer *timer_id, const struct device *dev)
 {
-    const struct az1uball_config *config = dev->config;
     struct az1uball_data *data = dev->data;
 
     uint32_t current_time = k_uptime_get();
@@ -195,7 +194,7 @@ static int az1uball_init(const struct device *dev)
 
     LOG_INF("AZ1UBALL driver initializing");
 
-    k_work_init(&az1uball_work, az1uball_read_data_work);
+    k_work_init(&data->work, az1uball_read_data_work);
     k_timer_init(&polling_timer, az1uball_polling, NULL);
     k_timer_start(&polling_timer, POLL_INTERVAL, POLL_INTERVAL);
 

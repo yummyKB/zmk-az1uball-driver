@@ -41,3 +41,5 @@ struct az1uball_data {
     int smoothed_x;
     int smoothed_y;
 };
+
+void az1uball_toggle_mode(void);
