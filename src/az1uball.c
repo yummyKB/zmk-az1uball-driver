@@ -24,7 +24,7 @@ volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
 
-#define POLL_INTERVAL 10  // Polling interval
+#define POLL_INTERVAL K_MSEC(10)  // Polling interval
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -169,9 +169,9 @@ void az1uball_read_data_work(struct k_work *work)
     i2c_reg_write_byte_dt(&config->i2c, REG_DOWN, zero);
 }
 
-static void az1uball_polling(struct k_timer *timer_id)
+static void az1uball_polling(struct k_timer *timer)
 {
-    struct az1uball_data *data = CONTAINER_OF(timer_id, struct az1uball_data, polling_timer);
+    struct az1uball_data *data = CONTAINER_OF(timer, struct az1uball_data, polling_timer);
 
     uint32_t current_time = k_uptime_get();
 
@@ -205,7 +205,7 @@ static int az1uball_init(const struct device *dev)
 
     /* Set high speed mode */
     uint8_t cmd = 0x91;
-    int ret = i2c_write_dt(&config->i2c, &cmd, sizeof(cmd));
+    ret = i2c_write_dt(&config->i2c, &cmd, sizeof(cmd));
     if (ret) {
         LOG_ERR("Failed to set AZ mode");
         return ret;
