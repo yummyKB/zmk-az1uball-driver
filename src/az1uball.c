@@ -200,7 +200,7 @@ static int az1uball_init(const struct device *dev)
     k_timer_start(&polling_timer, POLL_INTERVAL, POLL_INTERVAL);
 
     /* Check if the I2C device is ready */
-    if (!device_is_ready(config->i2c.bus)) {
+    if (!device_is_ready(config->i2c)) {
         LOG_ERR("I2C bus device is not ready");
         return -ENODEV;
     }
