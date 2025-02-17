@@ -36,7 +36,7 @@ static enum az1uball_mode current_mode = AZ1UBALL_MODE_MOUSE;
 static int previous_x = 0;
 static int previous_y = 0;
 
-void pim447_toggle_mode(void) {
+void az1uball_toggle_mode(void) {
     current_mode = (current_mode == AZ1UBALL_MODE_MOUSE) ? AZ1UBALL_MODE_SCROLL : AZ1UBALL_MODE_MOUSE;
     // Optional: Add logging or LED indication here to show the current mode
     LOG_DBG("AZ1UBALL mode switched to %s", (current_mode == AZ1UBALL_MODE_MOUSE) ? "MOUSE" : "SCROLL");
@@ -99,7 +99,7 @@ void az1uball_read_data_work(struct k_work *work)
     /* Report movement immediately if non-zero */
     if (delta_x != 0 || delta_y != 0) {
         if (current_mode == AZ1UBALL_MODE_MOUSE) {
-            pim447_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
+            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
 
             /* Report relative X movement */
             if (delta_x != 0) {
@@ -121,7 +121,7 @@ void az1uball_read_data_work(struct k_work *work)
                 }
             }
         } else if (current_mode == AZ1UBALL_MODE_SCROLL) {
-            pim447_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
+            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
 
             /* Report relative X movement */
             if (delta_x != 0) {
@@ -218,7 +218,7 @@ static int az1uball_init(const struct device *dev)
 
 #define AZ1UBALL_DEFINE(n)                                           \
   static struct az1uball_data az1uball_data_##n;                     \
-  static const struct az1uball_config config_##n = {                 \
+  static const struct az1uball_config az1uball_config_##n = {        \
       .i2c = I2C_DT_SPEC_INST_GET(n),                                \
   };                                                                 \
   DEVICE_DT_INST_DEFINE(n,                                           \
