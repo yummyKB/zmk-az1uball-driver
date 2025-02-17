@@ -223,7 +223,7 @@ static int az1uball_init(const struct device *dev)
                         az1uball_init,                               \
                         NULL,                                        \
                         &az1uball_data_##n,                          \
-                        &config_##n,                                 \
+                        &az1uball_config_##n,                        \
                         POST_KERNEL,                                 \
                         CONFIG_INPUT_INIT_PRIORITY,                  \
                         NULL);
