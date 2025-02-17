@@ -80,7 +80,7 @@ void az1uball_read_data_work(struct k_work *work)
     int ret;
 
     // Read data from I2C
-    ret = i2c_burst_read_dt(&config->i2c.bus, REG_LEFT, buf, 5);
+    ret = i2c_burst_read_dt(&config->i2c, REG_LEFT, buf, sizeof(buf));
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
         return;
@@ -207,7 +207,7 @@ static int az1uball_init(const struct device *dev)
 
     /* Set high speed mode */
     uint8_t cmd = 0x91;
-    int ret = i2c_burst_read_dt(config->i2c.bus, &cmd, sizeof(cmd));
+    int ret = i2c_burst_read_dt(config->i2c, &cmd, sizeof(cmd));
     if (ret) {
         LOG_ERR("Failed to set AZ mode");
         return ret;

@@ -25,8 +25,8 @@ struct az1uball_config {
 struct az1uball_data {
     const struct device *dev;
     struct k_work work;
-    struct k_work_delayable periodic_work;
     struct k_timer polling_timer;
+    struct k_mutex data_lock;
     int16_t x;
     int16_t y;
     uint8_t buttons;
