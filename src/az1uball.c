@@ -77,8 +77,15 @@ void az1uball_read_data_work(struct k_work *work)
     uint8_t buf[5];
     int ret;
 
+    /* Lock the mutex to ensure thread safety */
+    k_mutex_lock(&data->i2c_lock, K_FOREVER);
+
     // Read data from I2C
-    ret = i2c_read_dt(&config->i2c, buf, 5);
+    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
+
+    /* Unlock the mutex after the I2C operation */
+    k_mutex_unlock(&data->i2c_lock);
+
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
         return;
