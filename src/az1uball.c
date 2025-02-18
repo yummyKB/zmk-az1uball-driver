@@ -77,95 +77,88 @@ void az1uball_read_data_work(struct k_work *work)
     uint8_t buf[5];
     int ret;
 
-    /* Lock the mutex to ensure thread safety */
-    k_mutex_lock(&data->i2c_lock, K_FOREVER);
-
     // Read data from I2C
-    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
-
-    /* Unlock the mutex after the I2C operation */
-    k_mutex_unlock(&data->i2c_lock);
-
+    ret = i2c_burst_read_dt(&config->i2c, REG_LEFT, buf, sizeof(buf));
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
         return;
     }
-//
-//    uint32_t time_between_interrupts;
-//
-//    k_mutex_lock(&data->data_lock, K_FOREVER);
-//    time_between_interrupts = data->last_interrupt_time - data->previous_interrupt_time;
-//    k_mutex_unlock(&data->data_lock);
-//
-//    /* Calculate deltas */
-//    int16_t delta_x = (int16_t)buf[1] - (int16_t)buf[0]; // RIGHT - LEFT
-//    int16_t delta_y = (int16_t)buf[3] - (int16_t)buf[2]; // DOWN - UP
-//
-//    /* Report movement immediately if non-zero */
-//    if (delta_x != 0 || delta_y != 0) {
-//        if (current_mode == AZ1UBALL_MODE_MOUSE) {
-//            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
-//
-//            /* Report relative X movement */
-//            if (delta_x != 0) {
-//                ret = input_report_rel(data->dev, INPUT_REL_X, data->smoothed_x, true, K_NO_WAIT);
-//                if (ret) {
-//                    LOG_ERR("Failed to report delta_x: %d", ret);
-//                } else {
-//                    LOG_DBG("Reported delta_x: %d", data->smoothed_x);
-//                }
-//            }
-//
-//            /* Report relative Y movement */
-//            if (delta_y != 0) {
-//                ret = input_report_rel(data->dev, INPUT_REL_Y, data->smoothed_y, true, K_NO_WAIT);
-//                if (ret) {
-//                    LOG_ERR("Failed to report delta_y: %d", ret);
-//                } else {
-//                    LOG_DBG("Reported delta_y: %d", data->smoothed_y);
-//                }
-//            }
-//        } else if (current_mode == AZ1UBALL_MODE_SCROLL) {
-//            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
-//
-//            /* Report relative X movement */
-//            if (delta_x != 0) {
-//                ret = input_report_rel(data->dev, INPUT_REL_WHEEL, data->smoothed_x, true, K_NO_WAIT);
-//                if (ret) {
-//                    LOG_ERR("Failed to report delta_x: %d", ret);
-//                } else {
-//                    LOG_DBG("Reported delta_x: %d", data->smoothed_x);
-//                }
-//            }
-//
-//            /* Report relative Y movement */
-//            if (delta_y != 0) {
-//                ret = input_report_rel(data->dev, INPUT_REL_HWHEEL, data->smoothed_y, true, K_NO_WAIT);
-//                if (ret) {
-//                    LOG_ERR("Failed to report delta_y: %d", ret);
-//                } else {
-//                    LOG_DBG("Reported delta_y: %d", data->smoothed_y);
-//                }
-//            }
-//        }
-//    }
-//
-//    /* Update switch state */
-//    data->sw_pressed = (buf[4] & MSK_SWITCH_STATE) != 0;
-//
-//    /* Report switch state if it changed */
-//    if (data->sw_pressed != data->sw_pressed_prev) {
-//        ret = input_report_key(data->dev, INPUT_BTN_0, data->sw_pressed ? 1 : 0, true, K_NO_WAIT);
-//        if (ret) {
-//            LOG_ERR("Failed to report key");
-//        } else {
-//            LOG_DBG("Reported key");
-//        }
-//
-//        LOG_DBG("Reported switch state: %d", data->sw_pressed);
-//
-//        data->sw_pressed_prev = data->sw_pressed;
-//    }
+
+    uint32_t time_between_interrupts;
+
+    k_mutex_lock(&data->data_lock, K_FOREVER);
+    time_between_interrupts = data->last_interrupt_time - data->previous_interrupt_time;
+    k_mutex_unlock(&data->data_lock);
+
+    /* Calculate deltas */
+    int16_t delta_x = (int16_t)buf[1] - (int16_t)buf[0]; // RIGHT - LEFT
+    int16_t delta_y = (int16_t)buf[3] - (int16_t)buf[2]; // DOWN - UP
+
+    /* Report movement immediately if non-zero */
+    if (delta_x != 0 || delta_y != 0) {
+        if (current_mode == AZ1UBALL_MODE_MOUSE) {
+            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
+
+            /* Report relative X movement */
+            if (delta_x != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_X, data->smoothed_x, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_x: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_x: %d", data->smoothed_x);
+                }
+            }
+
+            /* Report relative Y movement */
+            if (delta_y != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_Y, data->smoothed_y, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_y: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_y: %d", data->smoothed_y);
+                }
+            }
+        } else if (current_mode == AZ1UBALL_MODE_SCROLL) {
+            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
+
+            /* Report relative X movement */
+            if (delta_x != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_WHEEL, data->smoothed_x, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_x: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_x: %d", data->smoothed_x);
+                }
+            }
+
+            /* Report relative Y movement */
+            if (delta_y != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_HWHEEL, data->smoothed_y, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_y: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_y: %d", data->smoothed_y);
+                }
+            }
+        }
+    }
+
+    /* Update switch state */
+    data->sw_pressed = (buf[4] & MSK_SWITCH_STATE) != 0;
+
+    /* Report switch state if it changed */
+    if (data->sw_pressed != data->sw_pressed_prev) {
+        ret = input_report_key(data->dev, INPUT_BTN_0, data->sw_pressed ? 1 : 0, true, K_NO_WAIT);
+        if (ret) {
+            LOG_ERR("Failed to report key");
+        } else {
+            LOG_DBG("Reported key");
+        }
+
+        LOG_DBG("Reported switch state: %d", data->sw_pressed);
+
+        data->sw_pressed_prev = data->sw_pressed;
+    }
 
     /* Clear movement registers */
 //    uint8_t zero = 0;
