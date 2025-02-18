@@ -189,7 +189,7 @@ static void az1uball_polling(struct k_timer *timer)
 
 static void az1uball_thread(struct k_thread *thread)
 {
-    struct az1uball_data *data = CONTAINER_OF(thread, struct az1uball_data, k_thread);
+    struct az1uball_data *data = CONTAINER_OF(thread, struct az1uball_data, thread);
     const struct az1uball_config *config = data->dev->config;
     uint8_t buf[5];
     int ret;
