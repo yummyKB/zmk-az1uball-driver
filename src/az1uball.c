@@ -203,11 +203,11 @@ static int az1uball_init(const struct device *dev)
         return -ENODEV;
     }
 
-    /* Set high speed mode */
+    /* Set turbo mode */
     uint8_t cmd = 0x91;
     ret = i2c_write_dt(&config->i2c, &cmd, sizeof(cmd));
     if (ret) {
-        LOG_ERR("Failed to set high speed mode");
+        LOG_ERR("Failed to set turbo mode");
         return ret;
     }
 

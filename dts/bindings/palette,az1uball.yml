@@ -1,7 +1,7 @@
 description: |
   Palette-System AZ1UBALL
 
-compatible: "palette,az1uball"
+compatible: "zmk,az1uball"
 
 include: i2c-device.yaml
 

@@ -6,7 +6,7 @@
 #include <zephyr/sys/mutex.h>
 
 /* I2C address */
-#define AZ1UBALL_I2C_ADDRESS  0x0A  // AZ1UBALLのI2Cアドレス（例）
+#define AZ1UBALL_I2C_ADDRESS  0x0A
 
 /* Register Addresses */
 #define REG_LEFT        0x04
@@ -27,9 +27,6 @@ struct az1uball_data {
     struct k_work work;
     struct k_timer polling_timer;
     struct k_mutex data_lock;
-    int16_t x;
-    int16_t y;
-    uint8_t buttons;
     bool sw_pressed;
     bool sw_pressed_prev;
     atomic_t x_buffer;
