@@ -76,10 +76,10 @@ static void az1uball_process_movement(struct az1uball_data *data, int delta_x, i
 /* Execution functions for asynchronous work */
 void az1uball_read_data_work(struct k_work *work)
 {
-//    struct az1uball_data *data = CONTAINER_OF(work, struct az1uball_data, work);
-//    const struct az1uball_config *config = data->dev->config;
-//    uint8_t buf[5];
-//    int ret;
+    struct az1uball_data *data = CONTAINER_OF(work, struct az1uball_data, work);
+    const struct az1uball_config *config = data->dev->config;
+    uint8_t buf[5];
+    int ret;
 //
 //    // Read data from I2C
 //    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
@@ -147,22 +147,22 @@ void az1uball_read_data_work(struct k_work *work)
 //        }
 //    }
 //
-//    /* Update switch state */
-//    data->sw_pressed = (buf[4] & MSK_SWITCH_STATE) != 0;
-//
-//    /* Report switch state if it changed */
-//    if (data->sw_pressed != data->sw_pressed_prev) {
-//        ret = input_report_key(data->dev, INPUT_BTN_0, data->sw_pressed ? 1 : 0, true, K_NO_WAIT);
-//        if (ret) {
-//            LOG_ERR("Failed to report key");
-//        } else {
-//            LOG_DBG("Reported key");
-//        }
-//
-//        LOG_DBG("Reported switch state: %d", data->sw_pressed);
-//
-//        data->sw_pressed_prev = data->sw_pressed;
-//    }
+    /* Update switch state */
+    data->sw_pressed = (buf[4] & MSK_SWITCH_STATE) != 0;
+
+    /* Report switch state if it changed */
+    if (data->sw_pressed != data->sw_pressed_prev) {
+        ret = input_report_key(data->dev, INPUT_BTN_0, data->sw_pressed ? 1 : 0, true, K_NO_WAIT);
+        if (ret) {
+            LOG_ERR("Failed to report key");
+        } else {
+            LOG_DBG("Reported key");
+        }
+
+        LOG_DBG("Reported switch state: %d", data->sw_pressed);
+
+        data->sw_pressed_prev = data->sw_pressed;
+    }
 
     /* Clear movement registers */
 //    uint8_t zero = 0;
