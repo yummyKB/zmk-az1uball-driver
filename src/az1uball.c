@@ -24,7 +24,7 @@ volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
 
-#define POLL_INTERVAL K_MSEC(10)  // Polling interval
+#define POLL_INTERVAL K_MSEC(1000)  // Polling interval
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -194,8 +194,8 @@ static int az1uball_init(const struct device *dev)
     LOG_INF("AZ1UBALL driver initializing");
 
     k_work_init(&data->work, az1uball_read_data_work);
-//    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
-//    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
+    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
+    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
 
     /* Check if the I2C device is ready */
     if (!device_is_ready(config->i2c.bus)) {
