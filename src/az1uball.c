@@ -24,7 +24,7 @@ volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
 
-#define POLL_INTERVAL K_MSEC(100)  // Polling interval
+#define POLL_INTERVAL K_MSEC(10)  // Polling interval
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
