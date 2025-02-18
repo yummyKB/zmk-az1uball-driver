@@ -24,7 +24,7 @@ volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
 
-#define POLL_INTERVAL K_MSEC(10)  // Polling interval
+#define POLL_INTERVAL K_MSEC(100)  // Polling interval
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -75,11 +75,11 @@ void az1uball_read_data_work(struct k_work *work)
 {
     struct az1uball_data *data = CONTAINER_OF(work, struct az1uball_data, work);
     const struct az1uball_config *config = data->dev->config;
-    uint8_t buf[5];  //Buffer to store X, Y, Switch data
+    uint8_t buf[5];
     int ret;
 
     // Read data from I2C
-    ret = i2c_burst_read_dt(&config->i2c, REG_LEFT, buf, sizeof(buf));
+    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
         return;
@@ -162,11 +162,11 @@ void az1uball_read_data_work(struct k_work *work)
     }
 
     /* Clear movement registers */
-    uint8_t zero = 0;
-    i2c_reg_write_byte_dt(&config->i2c, REG_LEFT, zero);
-    i2c_reg_write_byte_dt(&config->i2c, REG_RIGHT, zero);
-    i2c_reg_write_byte_dt(&config->i2c, REG_UP, zero);
-    i2c_reg_write_byte_dt(&config->i2c, REG_DOWN, zero);
+//    uint8_t zero = 0;
+//    i2c_reg_write_byte_dt(&config->i2c, REG_LEFT, zero);
+//    i2c_reg_write_byte_dt(&config->i2c, REG_RIGHT, zero);
+//    i2c_reg_write_byte_dt(&config->i2c, REG_UP, zero);
+//    i2c_reg_write_byte_dt(&config->i2c, REG_DOWN, zero);
 }
 
 static void az1uball_polling(struct k_timer *timer)
@@ -184,7 +184,7 @@ static void az1uball_polling(struct k_timer *timer)
     k_work_submit(&data->work);
 }
 
-/* AZ1UBALLの初期化 */
+/* Initialization of AZ1UBALL */
 static int az1uball_init(const struct device *dev)
 {
     const struct az1uball_config *config = dev->config;
@@ -207,7 +207,7 @@ static int az1uball_init(const struct device *dev)
     uint8_t cmd = 0x91;
     ret = i2c_write_dt(&config->i2c, &cmd, sizeof(cmd));
     if (ret) {
-        LOG_ERR("Failed to set AZ mode");
+        LOG_ERR("Failed to set high speed mode");
         return ret;
     }
 
