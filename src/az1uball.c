@@ -178,112 +178,13 @@ static void az1uball_polling(struct k_timer *timer)
 
     uint32_t current_time = k_uptime_get();
 
-    k_mutex_lock(&data->data_lock, K_NO_WAIT);
-    data->previous_interrupt_time = data->last_interrupt_time;
-    data->last_interrupt_time = current_time;
-    k_mutex_unlock(&data->data_lock);
+//    k_mutex_lock(&data->data_lock, K_NO_WAIT);
+//    data->previous_interrupt_time = data->last_interrupt_time;
+//    data->last_interrupt_time = current_time;
+//    k_mutex_unlock(&data->data_lock);
 
     /* Schedule the work item to handle the interrupt in thread context */
-    k_work_submit(&data->work);
-}
-
-static void az1uball_thread(void *p1, void *p2, void *p3)
-{
-    struct az1uball_data *data = (struct az1uball_data *)p1;
-    const struct az1uball_config *config = data->dev->config;
-    uint8_t buf[5];
-    int ret;
-
-    while (true) {
-
-    // Read data from I2C
-    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
-        if (ret) {
-            LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
-            return;
-        }
-
-        uint32_t current_time = k_uptime_get();
-        uint32_t time_between_interrupts;
-
-        k_mutex_lock(&data->data_lock, K_NO_WAIT);
-        data->previous_interrupt_time = data->last_interrupt_time;
-        data->last_interrupt_time = current_time;
-        time_between_interrupts = data->last_interrupt_time - data->previous_interrupt_time;
-        k_mutex_unlock(&data->data_lock);
-
-        /* Calculate deltas */
-        int16_t delta_x = (int16_t)buf[1] - (int16_t)buf[0]; // RIGHT - LEFT
-        int16_t delta_y = (int16_t)buf[3] - (int16_t)buf[2]; // DOWN - UP
-
-        /* Report movement immediately if non-zero */
-        if (delta_x != 0 || delta_y != 0) {
-            if (current_mode == AZ1UBALL_MODE_MOUSE) {
-                az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
-
-                /* Report relative X movement */
-                if (delta_x != 0) {
-                    ret = input_report_rel(data->dev, INPUT_REL_X, data->smoothed_x, true, K_NO_WAIT);
-                    if (ret) {
-                        LOG_ERR("Failed to report delta_x: %d", ret);
-                    } else {
-                        LOG_DBG("Reported delta_x: %d", data->smoothed_x);
-                    }
-                }
-
-                /* Report relative Y movement */
-                if (delta_y != 0) {
-                    ret = input_report_rel(data->dev, INPUT_REL_Y, data->smoothed_y, true, K_NO_WAIT);
-                    if (ret) {
-                        LOG_ERR("Failed to report delta_y: %d", ret);
-                    } else {
-                        LOG_DBG("Reported delta_y: %d", data->smoothed_y);
-                    }
-                }
-            } else if (current_mode == AZ1UBALL_MODE_SCROLL) {
-                az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
-
-                /* Report relative X movement */
-                if (delta_x != 0) {
-                    ret = input_report_rel(data->dev, INPUT_REL_WHEEL, data->smoothed_x, true, K_NO_WAIT);
-                    if (ret) {
-                        LOG_ERR("Failed to report delta_x: %d", ret);
-                    } else {
-                        LOG_DBG("Reported delta_x: %d", data->smoothed_x);
-                    }
-                }
-
-                /* Report relative Y movement */
-                if (delta_y != 0) {
-                    ret = input_report_rel(data->dev, INPUT_REL_HWHEEL, data->smoothed_y, true, K_NO_WAIT);
-                    if (ret) {
-                        LOG_ERR("Failed to report delta_y: %d", ret);
-                    } else {
-                        LOG_DBG("Reported delta_y: %d", data->smoothed_y);
-                    }
-                }
-            }
-        }
-
-        /* Update switch state */
-        data->sw_pressed = (buf[4] & MSK_SWITCH_STATE) != 0;
-
-        /* Report switch state if it changed */
-        if (data->sw_pressed != data->sw_pressed_prev) {
-            ret = input_report_key(data->dev, INPUT_BTN_0, data->sw_pressed ? 1 : 0, true, K_NO_WAIT);
-            if (ret) {
-                LOG_ERR("Failed to report key");
-            } else {
-                LOG_DBG("Reported key");
-            }
-
-            LOG_DBG("Reported switch state: %d", data->sw_pressed);
-
-            data->sw_pressed_prev = data->sw_pressed;
-        }
-
-        k_sleep(K_MSEC(10));
-    }
+//    k_work_submit(&data->work);
 }
 
 /* Initialization of AZ1UBALL */
@@ -295,10 +196,9 @@ static int az1uball_init(const struct device *dev)
 
     LOG_INF("AZ1UBALL driver initializing");
 
-//    k_work_init(&data->work, az1uball_read_data_work);
-//    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
-//    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
-    k_thread_create(&data->thread, thread_stack, STACK_SIZE, az1uball_thread, &data, NULL, NULL, K_PRIO_PREEMPT(8), 0, K_NO_WAIT);
+    k_work_init(&data->work, az1uball_read_data_work);
+    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
+    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
 
 
     /* Check if the I2C device is ready */
