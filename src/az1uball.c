@@ -9,7 +9,6 @@
 #include <zephyr/device.h>
 #include <zephyr/input/input.h>
 #include <zephyr/drivers/i2c.h>
-#include <zephyr/drivers/sensor.h>
 #include <zephyr/kernel.h>
 #include <math.h>
 #include "az1uball.h"
@@ -25,9 +24,6 @@ volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 
 #define POLL_INTERVAL K_MSEC(10)  // Polling interval
-
-#define STACK_SIZE 1024
-static K_THREAD_STACK_DEFINE(thread_stack, STACK_SIZE);
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -82,7 +78,7 @@ void az1uball_read_data_work(struct k_work *work)
     int ret;
 
     // Read data from I2C
-    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
+    ret = i2c_read_dt(&config->i2c, buf, 5);
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
         return;
