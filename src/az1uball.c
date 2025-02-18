@@ -325,6 +325,6 @@ static int az1uball_init(const struct device *dev)
                         &az1uball_config_##n,                        \
                         POST_KERNEL,                                 \
                         CONFIG_INPUT_INIT_PRIORITY,                  \
-                        MULL);
+                        NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
