@@ -187,9 +187,9 @@ static void az1uball_polling(struct k_timer *timer)
     k_work_submit(&data->work);
 }
 
-static void az1uball_thread(struct k_thread *thread)
+static void az1uball_thread(void *p1, void *p2, void *p3)
 {
-    struct az1uball_data *data = CONTAINER_OF(thread, struct az1uball_data, thread);
+    struct az1uball_data *data = (struct az1uball_data *)p1;
     const struct az1uball_config *config = data->dev->config;
     uint8_t buf[5];
     int ret;
@@ -293,7 +293,7 @@ static int az1uball_init(const struct device *dev)
 //    k_work_init(&data->work, az1uball_read_data_work);
 //    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
 //    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
-    k_thread_create(&data->thread, thread_stack, STACK_SIZE, az1uball_thread, NULL, NULL, NULL, K_PRIO_PREEMPT(8), 0, K_NO_WAIT);
+    k_thread_create(&data->thread, thread_stack, STACK_SIZE, az1uball_thread, &data, NULL, NULL, K_PRIO_PREEMPT(8), 0, K_NO_WAIT);
 
 
     /* Check if the I2C device is ready */
@@ -318,10 +318,6 @@ static int az1uball_init(const struct device *dev)
   static const struct az1uball_config az1uball_config_##n = {        \
       .i2c = I2C_DT_SPEC_INST_GET(n),                                \
   };                                                                 \
-  static const struct sensor_driver_api az1uball_api_##n = {         \
-      .sample_fetch = az1uball_sample_fetch,                         \
-      .channel_get  = az1uball_channel_get,                          \
-  };                                                                 \
   DEVICE_DT_INST_DEFINE(n,                                           \
                         az1uball_init,                               \
                         NULL,                                        \
@@ -329,6 +325,6 @@ static int az1uball_init(const struct device *dev)
                         &az1uball_config_##n,                        \
                         POST_KERNEL,                                 \
                         CONFIG_INPUT_INIT_PRIORITY,                  \
-                        &az1uball_api_##n);
+                        MULL);
 
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
