@@ -27,6 +27,7 @@ struct az1uball_data {
     struct k_work work;
     struct k_timer polling_timer;
     struct k_mutex data_lock;
+    struct k_thread thread;
     bool sw_pressed;
     bool sw_pressed_prev;
     atomic_t x_buffer;

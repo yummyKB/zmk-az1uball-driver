@@ -9,6 +9,7 @@
 #include <zephyr/device.h>
 #include <zephyr/input/input.h>
 #include <zephyr/drivers/i2c.h>
+#include <zephyr/drivers/sensor.h>
 #include <zephyr/kernel.h>
 #include <math.h>
 #include "az1uball.h"
@@ -22,9 +23,11 @@ volatile float AZ1UBALL_MOUSE_SMOOTHING_FACTOR = 1.3f;
 volatile uint8_t AZ1UBALL_SCROLL_MAX_SPEED = 1;
 volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
-volatile float AZ1UBALL_HUE_INCREMENT_FACTOR = 0.3f;
 
-#define POLL_INTERVAL K_MSEC(1000)  // Polling interval
+#define POLL_INTERVAL K_MSEC(10)  // Polling interval
+
+#define STACK_SIZE 1024
+static K_THREAD_STACK_DEFINE(thread_stack, STACK_SIZE);
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -184,6 +187,100 @@ static void az1uball_polling(struct k_timer *timer)
     k_work_submit(&data->work);
 }
 
+static void az1uball_thread(struct k_thread *thread)
+{
+    struct az1uball_data *data = CONTAINER_OF(thread, struct az1uball_data, k_thread);
+    const struct az1uball_config *config = data->dev->config;
+    uint8_t buf[5];
+    int ret;
+
+    // Read data from I2C
+    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
+    if (ret) {
+        LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
+        return;
+    }
+
+    uint32_t current_time = k_uptime_get();
+    uint32_t time_between_interrupts;
+
+    k_mutex_lock(&data->data_lock, K_NO_WAIT);
+    data->previous_interrupt_time = data->last_interrupt_time;
+    data->last_interrupt_time = current_time;
+    time_between_interrupts = data->last_interrupt_time - data->previous_interrupt_time;
+    k_mutex_unlock(&data->data_lock);
+
+    /* Calculate deltas */
+    int16_t delta_x = (int16_t)buf[1] - (int16_t)buf[0]; // RIGHT - LEFT
+    int16_t delta_y = (int16_t)buf[3] - (int16_t)buf[2]; // DOWN - UP
+
+    /* Report movement immediately if non-zero */
+    if (delta_x != 0 || delta_y != 0) {
+        if (current_mode == AZ1UBALL_MODE_MOUSE) {
+            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_MOUSE_MAX_SPEED, AZ1UBALL_MOUSE_MAX_TIME, AZ1UBALL_MOUSE_SMOOTHING_FACTOR);
+
+            /* Report relative X movement */
+            if (delta_x != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_X, data->smoothed_x, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_x: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_x: %d", data->smoothed_x);
+                }
+            }
+
+            /* Report relative Y movement */
+            if (delta_y != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_Y, data->smoothed_y, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_y: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_y: %d", data->smoothed_y);
+                }
+            }
+        } else if (current_mode == AZ1UBALL_MODE_SCROLL) {
+            az1uball_process_movement(data, delta_x, delta_y, time_between_interrupts, AZ1UBALL_SCROLL_MAX_SPEED, AZ1UBALL_SCROLL_MAX_TIME, AZ1UBALL_SCROLL_SMOOTHING_FACTOR);
+
+            /* Report relative X movement */
+            if (delta_x != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_WHEEL, data->smoothed_x, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_x: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_x: %d", data->smoothed_x);
+                }
+            }
+
+            /* Report relative Y movement */
+            if (delta_y != 0) {
+                ret = input_report_rel(data->dev, INPUT_REL_HWHEEL, data->smoothed_y, true, K_NO_WAIT);
+                if (ret) {
+                    LOG_ERR("Failed to report delta_y: %d", ret);
+                } else {
+                    LOG_DBG("Reported delta_y: %d", data->smoothed_y);
+                }
+            }
+        }
+    }
+
+    /* Update switch state */
+    data->sw_pressed = (buf[4] & MSK_SWITCH_STATE) != 0;
+
+    /* Report switch state if it changed */
+    if (data->sw_pressed != data->sw_pressed_prev) {
+        ret = input_report_key(data->dev, INPUT_BTN_0, data->sw_pressed ? 1 : 0, true, K_NO_WAIT);
+        if (ret) {
+            LOG_ERR("Failed to report key");
+        } else {
+            LOG_DBG("Reported key");
+        }
+
+        LOG_DBG("Reported switch state: %d", data->sw_pressed);
+
+        data->sw_pressed_prev = data->sw_pressed;
+    }
+}
+
 /* Initialization of AZ1UBALL */
 static int az1uball_init(const struct device *dev)
 {
@@ -193,9 +290,11 @@ static int az1uball_init(const struct device *dev)
 
     LOG_INF("AZ1UBALL driver initializing");
 
-    k_work_init(&data->work, az1uball_read_data_work);
-    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
-    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
+//    k_work_init(&data->work, az1uball_read_data_work);
+//    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
+//    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
+    k_thread_create(&data->thread, thread_stack, STACK_SIZE, az1uball_thread, NULL, NULL, NULL, K_PRIO_PREEMPT(8), 0, K_NO_WAIT);
+
 
     /* Check if the I2C device is ready */
     if (!device_is_ready(config->i2c.bus)) {
@@ -219,6 +318,10 @@ static int az1uball_init(const struct device *dev)
   static const struct az1uball_config az1uball_config_##n = {        \
       .i2c = I2C_DT_SPEC_INST_GET(n),                                \
   };                                                                 \
+  static const struct sensor_driver_api az1uball_api_##n = {         \
+      .sample_fetch = az1uball_sample_fetch,                         \
+      .channel_get  = az1uball_channel_get,                          \
+  };                                                                 \
   DEVICE_DT_INST_DEFINE(n,                                           \
                         az1uball_init,                               \
                         NULL,                                        \
@@ -226,6 +329,6 @@ static int az1uball_init(const struct device *dev)
                         &az1uball_config_##n,                        \
                         POST_KERNEL,                                 \
                         CONFIG_INPUT_INIT_PRIORITY,                  \
-                        NULL);
+                        &az1uball_api_##n);
 
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
