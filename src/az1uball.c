@@ -82,11 +82,11 @@ void az1uball_read_data_work(struct k_work *work)
     int ret;
 
     // Read data from I2C
-//    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
-//    if (ret) {
-//        LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
-//        return;
-//    }
+    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
+    if (ret) {
+        LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
+        return;
+    }
 //
 //    uint32_t time_between_interrupts;
 //
