@@ -77,13 +77,7 @@ void az1uball_read_data_work(struct k_work *work)
     uint8_t buf[5];
     int ret;
 
-    /* Check if the I2C device is ready */
-    if (!device_is_ready(config->i2c.bus)) {
-        LOG_ERR("I2C bus device is not ready: 0x%x", config->i2c.addr);
-        return -ENODEV;
-    } else {
-        LOG_INF("I2C bus device is ready: 0x%x", config->i2c.addr);
-    }
+    LOG_INF("I2C bus device is ready: 0x%x", &config->i2c.addr);
 
     // Read data from I2C
 //    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
