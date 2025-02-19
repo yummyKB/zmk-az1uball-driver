@@ -193,14 +193,14 @@ static int az1uball_init(const struct device *dev)
     LOG_INF("AZ1UBALL driver initializing");
 
     /* Check if the I2C device is ready */
-    if (!device_is_ready(&config->i2c.bus)) {
-        LOG_ERR("I2C bus device is not ready: %s", &config->i2c.bus->name);
+    if (!device_is_ready(config->i2c.bus)) {
+        LOG_ERR("I2C bus device is not ready: %d", &config->i2c.addr);
         return -ENODEV;
     }
 
     /* Set turbo mode */
     uint8_t cmd = 0x91;
-    ret = i2c_write_dt(&config->i2c, &cmd, sizeof(cmd));
+    ret = i2c_write_dt(config->i2c, &cmd, sizeof(cmd));
     if (ret) {
         LOG_ERR("Failed to set turbo mode");
         return ret;
@@ -217,7 +217,7 @@ static int az1uball_init(const struct device *dev)
 #define AZ1UBALL_DEFINE(n)                                           \
   static struct az1uball_data az1uball_data_##n;                     \
   static const struct az1uball_config az1uball_config_##n = {        \
-      .i2c = I2C_DT_SPEC_INST_GET(n),                                \
+              .i2c = I2C_DT_SPEC_INST_GET(n),                                \
   };                                                                 \
   DEVICE_DT_INST_DEFINE(n,                                           \
                         az1uball_init,                               \
