@@ -217,7 +217,7 @@ static int az1uball_init(const struct device *dev)
 #define AZ1UBALL_DEFINE(n)                                           \
   static struct az1uball_data az1uball_data_##n;                     \
   static const struct az1uball_config az1uball_config_##n = {        \
-              .i2c = I2C_DT_SPEC_INST_GET(n),                                \
+      .i2c = I2C_DT_SPEC_INST_GET(n),                                \
   };                                                                 \
   DEVICE_DT_INST_DEFINE(n,                                           \
                         az1uball_init,                               \
