@@ -9,3 +9,7 @@ properties:
   reg:
     required: true
     description: I2C address of the trackball
+
+  automouse-layer:
+    type: int
+    default: -1

@@ -5,16 +5,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/mutex.h>
 
-/* I2C address */
-#define AZ1UBALL_I2C_ADDRESS  0x0A
-
-/* Register Addresses */
-#define REG_LEFT        0x04
-#define REG_RIGHT       0x05
-#define REG_UP          0x06
-#define REG_DOWN        0x07
-#define REG_SWITCH      0x08
-
 /* Bit Masks */
 #define MSK_SWITCH_STATE    0b10000000
 

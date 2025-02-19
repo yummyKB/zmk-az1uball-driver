@@ -32,6 +32,9 @@ enum az1uball_mode {
 
 static enum az1uball_mode current_mode = AZ1UBALL_MODE_MOUSE;
 
+static void activate_automouse_layer();
+static void deactivate_automouse_layer(struct k_timer *timer);
+
 static int previous_x = 0;
 static int previous_y = 0;
 
@@ -78,7 +81,7 @@ void az1uball_read_data_work(struct k_work *work)
     int ret;
 
     // Read data from I2C
-    ret = i2c_burst_read_dt(&config->i2c, REG_LEFT, buf, sizeof(buf));
+    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
     if (ret) {
         LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
         return;
@@ -93,6 +96,18 @@ void az1uball_read_data_work(struct k_work *work)
     /* Calculate deltas */
     int16_t delta_x = (int16_t)buf[1] - (int16_t)buf[0]; // RIGHT - LEFT
     int16_t delta_y = (int16_t)buf[3] - (int16_t)buf[2]; // DOWN - UP
+    if IS_ENABLED(CONFIG_AZ1UBALL_SWAP_XY) {
+        int16_t a = delta_x;
+        delta_x = delta_y;
+        delta_y = a;
+    }
+    if IS_ENABLED(CONFIG_AZ1UBALL_INVERT_X) {
+        delta_x = -delta_x;
+    }
+    if IS_ENABLED(CONFIG_AZ1UBALL_INVERT_Y) {
+        delta_y = -delta_y;
+    }
+
 
     /* Report movement immediately if non-zero */
     if (delta_x != 0 || delta_y != 0) {
@@ -159,13 +174,6 @@ void az1uball_read_data_work(struct k_work *work)
 
         data->sw_pressed_prev = data->sw_pressed;
     }
-
-    /* Clear movement registers */
-//    uint8_t zero = 0;
-//    i2c_reg_write_byte_dt(&config->i2c, REG_LEFT, zero);
-//    i2c_reg_write_byte_dt(&config->i2c, REG_RIGHT, zero);
-//    i2c_reg_write_byte_dt(&config->i2c, REG_UP, zero);
-//    i2c_reg_write_byte_dt(&config->i2c, REG_DOWN, zero);
 }
 
 static void az1uball_polling(struct k_timer *timer)
@@ -199,8 +207,6 @@ static int az1uball_init(const struct device *dev)
     if (!device_is_ready(config->i2c.bus)) {
         LOG_ERR("I2C bus device is not ready: 0x%x", config->i2c.addr);
         return -ENODEV;
-    } else {
-        LOG_INF("I2C bus device is ready: 0x%x", config->i2c.addr);
     }
 
     /* Set turbo mode */
@@ -218,6 +224,25 @@ static int az1uball_init(const struct device *dev)
 
     return 0;
 }
+
+#define AUTOMOUSE_LAYER (DT_PROP(DT_DRV_INST(0), automouse_layer))
+#if AUTOMOUSE_LAYER > 0
+    struct k_timer automouse_layer_timer;
+    static bool automouse_triggered = false;
+
+    static void activate_automouse_layer() {
+        automouse_triggered = true;
+        zmk_keymap_layer_activate(AUTOMOUSE_LAYER);
+        k_timer_start(&automouse_layer_timer, K_MSEC(CONFIG_AZ1UBALL_AUTOMOUSE_TIMEOUT_MS), K_NO_WAIT);
+    }
+
+    static void deactivate_automouse_layer(struct k_timer *timer) {
+        automouse_triggered = false;
+        zmk_keymap_layer_deactivate(AUTOMOUSE_LAYER);
+    }
+
+    K_TIMER_DEFINE(automouse_layer_timer, deactivate_automouse_layer, NULL);
+#endif
 
 #define AZ1UBALL_DEFINE(n)                                           \
   static struct az1uball_data az1uball_data_##n;                     \

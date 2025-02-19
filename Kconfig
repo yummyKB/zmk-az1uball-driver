@@ -6,9 +6,21 @@ menuconfig AZ1UBALL
     Enable driver for Palette-System AZ1UBALL Trackball.
 
 if AZ1UBALL
+  config AZ1UBALL_SWAP_XY
+    bool "Swap the X/Y axis of AZ1UBALL"
 
-    module = AZ1UBALL
-    module-str = AZ1UBALL
-    source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+  config AZ1UBALL_INVERT_X
+    bool "Invert the X axis of AZ1UBALL"
+
+  config AZ1UBALL_INVERT_Y
+    bool "Invert the Y axis of AZ1UBALL"
+
+  config AZ1UBALL_AUTOMOUSE_TIMEOUT_MS
+    int "Amount of milliseconds the mouse layer will be active after using the trackball"
+    default 400
+
+  module = AZ1UBALL
+  module-str = AZ1UBALL
+  source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
 
 endif #AZ1UBALL
