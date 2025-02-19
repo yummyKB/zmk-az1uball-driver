@@ -96,18 +96,6 @@ void az1uball_read_data_work(struct k_work *work)
     /* Calculate deltas */
     int16_t delta_x = (int16_t)buf[1] - (int16_t)buf[0]; // RIGHT - LEFT
     int16_t delta_y = (int16_t)buf[3] - (int16_t)buf[2]; // DOWN - UP
-    if IS_ENABLED(CONFIG_AZ1UBALL_SWAP_XY) {
-        int16_t a = delta_x;
-        delta_x = delta_y;
-        delta_y = a;
-    }
-    if IS_ENABLED(CONFIG_AZ1UBALL_INVERT_X) {
-        delta_x = -delta_x;
-    }
-    if IS_ENABLED(CONFIG_AZ1UBALL_INVERT_Y) {
-        delta_y = -delta_y;
-    }
-
 
     /* Report movement immediately if non-zero */
     if (delta_x != 0 || delta_y != 0) {
