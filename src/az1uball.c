@@ -77,8 +77,6 @@ void az1uball_read_data_work(struct k_work *work)
     uint8_t buf[5];
     int ret;
 
-    LOG_INF("I2C bus device is ready: 0x%x", &config->i2c.addr);
-
     // Read data from I2C
 //    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
 //    if (ret) {
@@ -201,6 +199,16 @@ static int az1uball_init(const struct device *dev)
     } else {
         LOG_INF("I2C bus device is ready: 0x%x", config->i2c.addr);
     }
+
+    uint8_t buf[5];
+    ret = i2c_read_dt(&config->i2c, buf, sizeof(buf));
+    if (ret) {
+        LOG_ERR("Failed to read movement data from AZ1YBALL: %d", ret);
+        return;
+    } else {
+        LOG_INF("Succeeded in read movement data from AZ1YBALL");
+    }
+
 
     /* Set turbo mode */
     uint8_t cmd = 0x91;
