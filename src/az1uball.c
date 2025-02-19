@@ -194,7 +194,7 @@ static int az1uball_init(const struct device *dev)
 
     /* Check if the I2C device is ready */
     if (!device_is_ready(&config->i2c.bus)) {
-        LOG_ERR("I2C bus device is not ready");
+        LOG_ERR("I2C bus device is not ready: %d", &config->i2c.bus);
         return -ENODEV;
     }
 
