@@ -203,6 +203,9 @@ static int az1uball_init(const struct device *dev)
 
     LOG_INF("AZ1UBALL driver initializing");
 
+    data->dev = dev;
+    data->sw_pressed_prev = false;
+
     /* Check if the I2C device is ready */
     if (!device_is_ready(config->i2c.bus)) {
         LOG_ERR("I2C bus device is not ready: 0x%x", config->i2c.addr);
@@ -210,7 +213,6 @@ static int az1uball_init(const struct device *dev)
     } else {
         LOG_INF("I2C bus device is ready: 0x%x", config->i2c.addr);
     }
-
 
     /* Set turbo mode */
     uint8_t cmd = 0x91;
@@ -218,14 +220,6 @@ static int az1uball_init(const struct device *dev)
     if (ret) {
         LOG_ERR("Failed to set turbo mode");
         return ret;
-    }
-
-    /* Check if the I2C device is ready */
-    if (!device_is_ready(config->i2c.bus)) {
-        LOG_ERR("I2C bus device is not ready: 0x%x", config->i2c.addr);
-        return -ENODEV;
-    } else {
-        LOG_INF("I2C bus device is ready: 0x%x", config->i2c.addr);
     }
 
     k_work_init(&data->work, az1uball_read_data_work);
