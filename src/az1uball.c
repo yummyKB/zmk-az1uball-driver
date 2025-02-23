@@ -23,7 +23,9 @@ volatile uint8_t AZ1UBALL_SCROLL_MAX_SPEED = 1;
 volatile uint8_t AZ1UBALL_SCROLL_MAX_TIME = 1;
 volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 
-#define POLL_INTERVAL K_MSEC(10)  // Polling interval
+#define NORMAL_POLL_INTERVAL K_MSEC(10)   // 通常時: 10ms (100Hz)
+#define LOW_POWER_POLL_INTERVAL K_MSEC(100) // 省電力時: 100ms (10Hz)
+#define LOW_POWER_TIMEOUT K_MSEC(5000)    // 5秒間入力がないと省電力モードへ
 
 enum az1uball_mode {
     AZ1UBALL_MODE_MOUSE,
@@ -44,12 +46,40 @@ void az1uball_toggle_mode(void) {
     LOG_DBG("AZ1UBALL mode switched to %s", (current_mode == AZ1UBALL_MODE_MOUSE) ? "MOUSE" : "SCROLL");
 }
 
+static float parse_sensitivity(const char *sensitivity) {
+    float value;
+    char *endptr;
+    
+    value = strtof(sensitivity, &endptr);
+    if (endptr == sensitivity || (*endptr != 'x' && *endptr != 'X')) {
+        return 1.0f; // デフォルト値
+    }
+    
+    return value;
+}
+
+static void check_power_mode(struct az1uball_data *data) {
+    uint32_t current_time = k_uptime_get();
+    uint32_t idle_time = current_time - data->last_activity_time;
+
+    if (!data->is_low_power_mode && idle_time > LOW_POWER_TIMEOUT) {
+        // 省電力モードに切り替え
+        data->is_low_power_mode = true;
+        k_timer_stop(&data->polling_timer);
+        k_timer_start(&data->polling_timer, LOW_POWER_POLL_INTERVAL, LOW_POWER_POLL_INTERVAL);
+        LOG_DBG("Entering low power mode");
+    }
+}
+
 static void az1uball_process_movement(struct az1uball_data *data, int delta_x, int delta_y, uint32_t time_between_interrupts, int max_speed, int max_time, float smoothing_factor) {
-    float scaling_factor = 1.0f;
+    const struct az1uball_config *config = data->dev->config;
+    float sensitivity = parse_sensitivity(config->sensitivity);
+    float scaling_factor = sensitivity;  // 基本のスケーリングファクターを感度に設定
+    
     if (time_between_interrupts < max_time) {
-        // Exponential scaling calculation
-        float exponent = -3.0f * (float)time_between_interrupts / max_time; // Adjust -3.0f for desired curve
-        scaling_factor = 1.0f + (max_speed - 1.0f) * expf(exponent);
+        // 既存の計算にsensitivityを掛ける
+        float exponent = -3.0f * (float)time_between_interrupts / max_time;
+        scaling_factor *= 1.0f + (max_speed - 1.0f) * expf(exponent);
     }
 
     // Apply scaling based on mode
@@ -70,6 +100,18 @@ static void az1uball_process_movement(struct az1uball_data *data, int delta_x, i
 
     data->previous_x = data->smoothed_x;
     data->previous_y = data->smoothed_y;
+
+    if (delta_x != 0 || delta_y != 0) {
+        data->last_activity_time = k_uptime_get();
+        
+        if (data->is_low_power_mode) {
+            // 通常モードに戻す
+            data->is_low_power_mode = false;
+            k_timer_stop(&data->polling_timer);
+            k_timer_start(&data->polling_timer, NORMAL_POLL_INTERVAL, NORMAL_POLL_INTERVAL);
+            LOG_DBG("Returning to normal mode");
+        }
+    }
 }
 
 /* Execution functions for asynchronous work */
@@ -167,6 +209,8 @@ void az1uball_read_data_work(struct k_work *work)
 static void az1uball_polling(struct k_timer *timer)
 {
     struct az1uball_data *data = CONTAINER_OF(timer, struct az1uball_data, polling_timer);
+    
+    check_power_mode(data);
 
     uint32_t current_time = k_uptime_get();
 
@@ -182,8 +226,8 @@ static void az1uball_polling(struct k_timer *timer)
 /* Initialization of AZ1UBALL */
 static int az1uball_init(const struct device *dev)
 {
-    const struct az1uball_config *config = dev->config;
     struct az1uball_data *data = dev->data;
+    const struct az1uball_config *config = dev->config;
     int ret;
 
     LOG_INF("AZ1UBALL driver initializing");
@@ -207,43 +251,34 @@ static int az1uball_init(const struct device *dev)
 
     k_work_init(&data->work, az1uball_read_data_work);
 
+    data->last_activity_time = k_uptime_get();
+    data->is_low_power_mode = false;
+
     k_timer_init(&data->polling_timer, az1uball_polling, NULL);
-    k_timer_start(&data->polling_timer, POLL_INTERVAL, POLL_INTERVAL);
+    k_timer_start(&data->polling_timer, NORMAL_POLL_INTERVAL, NORMAL_POLL_INTERVAL);
+
+    // デフォルトモードの設定
+    if (strcmp(config->default_mode, "scroll") == 0) {
+        az1uball_toggle_mode();
+    }
 
     return 0;
 }
 
-#define AUTOMOUSE_LAYER (DT_PROP(DT_DRV_INST(0), automouse_layer))
-#if AUTOMOUSE_LAYER > 0
-    struct k_timer automouse_layer_timer;
-    static bool automouse_triggered = false;
-
-    static void activate_automouse_layer() {
-        automouse_triggered = true;
-        zmk_keymap_layer_activate(AUTOMOUSE_LAYER);
-        k_timer_start(&automouse_layer_timer, K_MSEC(CONFIG_AZ1UBALL_AUTOMOUSE_TIMEOUT_MS), K_NO_WAIT);
-    }
-
-    static void deactivate_automouse_layer(struct k_timer *timer) {
-        automouse_triggered = false;
-        zmk_keymap_layer_deactivate(AUTOMOUSE_LAYER);
-    }
-
-    K_TIMER_DEFINE(automouse_layer_timer, deactivate_automouse_layer, NULL);
-#endif
-
-#define AZ1UBALL_DEFINE(n)                                           \
-  static struct az1uball_data az1uball_data_##n;                     \
-  static const struct az1uball_config az1uball_config_##n = {        \
-      .i2c = I2C_DT_SPEC_INST_GET(n),                                \
-  };                                                                 \
-  DEVICE_DT_INST_DEFINE(n,                                           \
-                        az1uball_init,                               \
-                        NULL,                                        \
-                        &az1uball_data_##n,                          \
-                        &az1uball_config_##n,                        \
-                        POST_KERNEL,                                 \
-                        CONFIG_INPUT_INIT_PRIORITY,                  \
-                        NULL);
+#define AZ1UBALL_DEFINE(n)                                             \
+    static struct az1uball_data az1uball_data_##n;                     \
+    static const struct az1uball_config az1uball_config_##n = {        \
+        .i2c = I2C_DT_SPEC_INST_GET(n),                                \
+        .default_mode = DT_INST_PROP_OR(n, default_mode, "mouse"),     \
+        .sensitivity = DT_INST_PROP_OR(n, sensitivity, "1x"),          \
+    };                                                                 \
+    DEVICE_DT_INST_DEFINE(n,                                           \
+                          az1uball_init,                               \
+                          NULL,                                        \
+                          &az1uball_data_##n,                          \
+                          &az1uball_config_##n,                        \
+                          POST_KERNEL,                                 \
+                          CONFIG_INPUT_INIT_PRIORITY,                  \
+                          NULL);
 
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)

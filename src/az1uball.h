@@ -10,6 +10,8 @@
 
 struct az1uball_config {
     struct i2c_dt_spec i2c;
+    const char *default_mode;
+    const char *sensitivity;
 };
 
 struct az1uball_data {
@@ -17,7 +19,6 @@ struct az1uball_data {
     struct k_work work;
     struct k_timer polling_timer;
     struct k_mutex data_lock;
-    struct k_mutex i2c_lock;    /* New mutex for I2C operations */
     bool sw_pressed;
     bool sw_pressed_prev;
     atomic_t x_buffer;
@@ -28,6 +29,10 @@ struct az1uball_data {
     int previous_y;
     int smoothed_x;
     int smoothed_y;
+    enum az1uball_mode current_mode;
+    uint32_t last_activity_time;    // 最後の入力があった時間
+    bool is_low_power_mode;         // 省電力モードフラグ
 };
 
+/* Public API */
 void az1uball_toggle_mode(void);
