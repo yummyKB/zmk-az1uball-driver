@@ -11,6 +11,7 @@
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/kernel.h>
 #include <math.h>
+#include <stdlib.h>
 #include "az1uball.h"
 
 #include <zephyr/logging/log.h>
@@ -25,7 +26,7 @@ volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 
 #define NORMAL_POLL_INTERVAL K_MSEC(10)   // 通常時: 10ms (100Hz)
 #define LOW_POWER_POLL_INTERVAL K_MSEC(100) // 省電力時: 100ms (10Hz)
-#define LOW_POWER_TIMEOUT K_MSEC(5000)    // 5秒間入力がないと省電力モードへ
+#define LOW_POWER_TIMEOUT_MS 5000    // 5秒間入力がないと省電力モードへ
 
 static enum az1uball_mode current_mode = AZ1UBALL_MODE_MOUSE;
 
@@ -57,7 +58,7 @@ static void check_power_mode(struct az1uball_data *data) {
     uint32_t current_time = k_uptime_get();
     uint32_t idle_time = current_time - data->last_activity_time;
 
-    if (!data->is_low_power_mode && idle_time > LOW_POWER_TIMEOUT) {
+    if (!data->is_low_power_mode && idle_time > LOW_POWER_TIMEOUT_MS) {
         // 省電力モードに切り替え
         data->is_low_power_mode = true;
         k_timer_stop(&data->polling_timer);
