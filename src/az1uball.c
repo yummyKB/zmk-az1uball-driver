@@ -27,11 +27,6 @@ volatile float AZ1UBALL_SCROLL_SMOOTHING_FACTOR = 0.5f;
 #define LOW_POWER_POLL_INTERVAL K_MSEC(100) // 省電力時: 100ms (10Hz)
 #define LOW_POWER_TIMEOUT K_MSEC(5000)    // 5秒間入力がないと省電力モードへ
 
-enum az1uball_mode {
-    AZ1UBALL_MODE_MOUSE,
-    AZ1UBALL_MODE_SCROLL
-};
-
 static enum az1uball_mode current_mode = AZ1UBALL_MODE_MOUSE;
 
 static void activate_automouse_layer();

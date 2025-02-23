@@ -8,6 +8,12 @@
 /* Bit Masks */
 #define MSK_SWITCH_STATE    0b10000000
 
+/* Mode definitions */
+enum az1uball_mode {
+    AZ1UBALL_MODE_MOUSE,
+    AZ1UBALL_MODE_SCROLL
+};
+
 struct az1uball_config {
     struct i2c_dt_spec i2c;
     const char *default_mode;
