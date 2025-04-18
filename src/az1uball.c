@@ -83,6 +83,14 @@ static void az1uball_process_movement(struct az1uball_data *data, int delta_x, i
         scaling_factor *= 2.5f; // Example: Increase scaling for scroll mode
     }
 
+    // Flip the axis if the overlay settings are applied
+    if (config->flip_x) {
+        delta_x = -delta_x;
+    }
+    if (config->flip_y) {
+        delta_y = -delta_y;
+    }
+
     /* Accumulate deltas atomically */
     atomic_add(&data->x_buffer, delta_x);
     atomic_add(&data->y_buffer, delta_y);
@@ -193,72 +201,15 @@ void az1uball_read_data_work(struct k_work *work)
         if (ret) {
             LOG_ERR("Failed to report key");
         } else {
-            LOG_DBG("Reported key");
+            LOG_DBG("Reported key: %d", data->sw_pressed);
         }
-
-        LOG_DBG("Reported switch state: %d", data->sw_pressed);
-
         data->sw_pressed_prev = data->sw_pressed;
     }
-}
 
-static void az1uball_polling(struct k_timer *timer)
-{
-    struct az1uball_data *data = CONTAINER_OF(timer, struct az1uball_data, polling_timer);
-    
-    check_power_mode(data);
-
-    uint32_t current_time = k_uptime_get();
-
-    k_mutex_lock(&data->data_lock, K_NO_WAIT);
+    /* Mark the previous interrupt time */
+    k_mutex_lock(&data->data_lock, K_FOREVER);
     data->previous_interrupt_time = data->last_interrupt_time;
-    data->last_interrupt_time = current_time;
     k_mutex_unlock(&data->data_lock);
-
-    /* Schedule the work item to handle the interrupt in thread context */
-    k_work_submit(&data->work);
-}
-
-/* Initialization of AZ1UBALL */
-static int az1uball_init(const struct device *dev)
-{
-    struct az1uball_data *data = dev->data;
-    const struct az1uball_config *config = dev->config;
-    int ret;
-
-    LOG_INF("AZ1UBALL driver initializing");
-
-    data->dev = dev;
-    data->sw_pressed_prev = false;
-
-    /* Check if the I2C device is ready */
-    if (!device_is_ready(config->i2c.bus)) {
-        LOG_ERR("I2C bus device is not ready: 0x%x", config->i2c.addr);
-        return -ENODEV;
-    }
-
-    /* Set turbo mode */
-    uint8_t cmd = 0x91;
-    ret = i2c_write_dt(&config->i2c, &cmd, sizeof(cmd));
-    if (ret) {
-        LOG_ERR("Failed to set turbo mode");
-        return ret;
-    }
-
-    k_work_init(&data->work, az1uball_read_data_work);
-
-    data->last_activity_time = k_uptime_get();
-    data->is_low_power_mode = false;
-
-    k_timer_init(&data->polling_timer, az1uball_polling, NULL);
-    k_timer_start(&data->polling_timer, NORMAL_POLL_INTERVAL, NORMAL_POLL_INTERVAL);
-
-    // デフォルトモードの設定
-    if (strcmp(config->default_mode, "scroll") == 0) {
-        az1uball_toggle_mode();
-    }
-
-    return 0;
 }
 
 #define AZ1UBALL_DEFINE(n)                                             \
@@ -267,6 +218,8 @@ static int az1uball_init(const struct device *dev)
         .i2c = I2C_DT_SPEC_INST_GET(n),                                \
         .default_mode = DT_INST_PROP_OR(n, default_mode, "mouse"),     \
         .sensitivity = DT_INST_PROP_OR(n, sensitivity, "1x"),          \
+        .flip_x = DT_INST_NODE_HAS_PROP(n, flip_x),                    \
+        .flip_y = DT_INST_NODE_HAS_PROP(n, flip_y),                    \
     };                                                                 \
     DEVICE_DT_INST_DEFINE(n,                                           \
                           az1uball_init,                               \
@@ -276,5 +229,3 @@ static int az1uball_init(const struct device *dev)
                           POST_KERNEL,                                 \
                           CONFIG_INPUT_INIT_PRIORITY,                  \
                           NULL);
-
-DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
