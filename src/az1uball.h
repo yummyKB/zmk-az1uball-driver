@@ -18,6 +18,9 @@ struct az1uball_config {
     struct i2c_dt_spec i2c;
     const char *default_mode;
     const char *sensitivity;
+
+    bool flip_x;
+    bool flip_y;
 };
 
 struct az1uball_data {
