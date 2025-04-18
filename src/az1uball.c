@@ -229,3 +229,5 @@ void az1uball_read_data_work(struct k_work *work)
                           POST_KERNEL,                                 \
                           CONFIG_INPUT_INIT_PRIORITY,                  \
                           NULL);
+
+DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
