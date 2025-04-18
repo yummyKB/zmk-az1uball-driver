@@ -34,10 +34,8 @@ properties:
   flip_x:
     type: boolean
     description: "Flip the X-axis direction"
-    default: false
 
   flip_y:
     type: boolean
     description: "Flip the Y-axis direction"
-    default: false
 
