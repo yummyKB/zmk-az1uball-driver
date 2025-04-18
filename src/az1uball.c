@@ -230,4 +230,34 @@ void az1uball_read_data_work(struct k_work *work)
                           CONFIG_INPUT_INIT_PRIORITY,                  \
                           NULL);
 
+static int az1uball_init(const struct device *dev)
+{
+    struct az1uball_data *data = dev->data;
+    const struct az1uball_config *config = dev->config;
+
+    data->dev = dev;
+    data->last_activity_time = k_uptime_get();
+    data->is_low_power_mode = false;
+
+    atomic_set(&data->x_buffer, 0);
+    atomic_set(&data->y_buffer, 0);
+
+    k_mutex_init(&data->data_lock);
+    k_work_init(&data->work, az1uball_read_data_work);
+
+    k_timer_init(&data->polling_timer, NULL, NULL); // handler未設定。必要に応じて追加
+    k_timer_user_data_set(&data->polling_timer, data);
+
+    if (!device_is_ready(config->i2c.bus)) {
+        LOG_ERR("I2C bus not ready");
+        return -ENODEV;
+    }
+
+    k_timer_start(&data->polling_timer, NORMAL_POLL_INTERVAL, NORMAL_POLL_INTERVAL);
+
+    LOG_INF("AZ1UBALL initialized");
+    return 0;
+}
+
+
 DT_INST_FOREACH_STATUS_OKAY(AZ1UBALL_DEFINE)
